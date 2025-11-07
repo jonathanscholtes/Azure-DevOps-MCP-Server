@@ -1,8 +1,11 @@
+# src/mcp/ado/app.py
+
 from mcp.server.fastmcp import FastMCP
 import logging
 from tools.core import register_core_tools
 from tools.work import register_work_tools
 from tools.work_items import register_work_item_tools
+from tools.pipeline import register_pipeline_tools
 
 from os import environ
 from dotenv import load_dotenv
@@ -40,7 +43,7 @@ AUTH = ("", PAT)  # Basic auth with PAT as password, temp for quick build and te
 register_core_tools(app, ORG_URL, AUTH, API_VERSION)
 register_work_tools(app, ORG_URL, AUTH, API_VERSION)
 register_work_item_tools(app, ORG_URL, AUTH, API_VERSION)
-#register_pipeline_tools(app, ORG_URL, AUTH, API_VERSION)
+register_pipeline_tools(app, ORG_URL, AUTH, API_VERSION)
 #register_repo_tools(app, ORG_URL, AUTH, API_VERSION)
 
 

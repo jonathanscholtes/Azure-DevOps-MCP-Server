@@ -1,6 +1,5 @@
 import requests
 
-
 def register_work_item_tools(app, base_url, auth, api_version):
     """
     Register Azure DevOps MCP tools for managing Work Items.
@@ -24,6 +23,26 @@ def register_work_item_tools(app, base_url, auth, api_version):
         resp.raise_for_status()
         work_items = [w["id"] for w in resp.json().get("workItems", [])]
         return {"work_item_ids": work_items}
+
+    @app.tool()
+    def get_work_item_by_title(project: str, title: str):
+        """
+        Find a work item ID by its title.
+        """
+        url = f"{base_url}/{project}/_apis/wit/wiql?api-version={api_version}"
+        query = {
+            "query": f"""
+                SELECT [System.Id]
+                FROM workitems
+                WHERE [System.Title] = '{title}'
+            """
+        }
+        resp = requests.post(url, json=query, auth=auth)
+        resp.raise_for_status()
+        work_items = resp.json().get("workItems", [])
+        if not work_items:
+            return {"error": f"No work item found with title '{title}'"}
+        return {"work_item_id": work_items[0]["id"]}
 
     @app.tool()
     def list_backlogs(project: str):
@@ -118,5 +137,59 @@ def register_work_item_tools(app, base_url, auth, api_version):
         resp = requests.get(url, auth=auth)
         resp.raise_for_status()
         return {"work_items": resp.json().get("workItems", [])}
+
+
+    # ------------------------------
+    # New: Summarize work item hierarchy
+    # ------------------------------
+
+    def get_child_work_items(project: str, work_item_id: int):
+        """Fetch child work items (Features/Stories)"""
+        url = f"{base_url}/{project}/_apis/wit/workitems/{work_item_id}?$expand=relations&api-version={api_version}"
+        resp = requests.get(url, auth=auth)
+        resp.raise_for_status()
+        data = resp.json()
+        children = []
+        for rel in data.get("relations", []):
+            if rel["rel"] == "System.LinkTypes.Hierarchy-Forward":
+                child_id = int(rel["url"].split("/")[-1])
+                child_item = get_work_item(project, child_id)
+                children.append(child_item)
+        return children
+
+    def get_blockers(project: str, work_item_id: int):
+        """Fetch items that block this work item"""
+        url = f"{base_url}/{project}/_apis/wit/workitems/{work_item_id}?$expand=relations&api-version={api_version}"
+        resp = requests.get(url, auth=auth)
+        resp.raise_for_status()
+        blockers = []
+        for rel in resp.json().get("relations", []):
+            if rel["rel"] == "System.LinkTypes.Dependency-Forward":
+                blocker_id = int(rel["url"].split("/")[-1])
+                blocker_item = get_work_item(project, blocker_id)
+                blockers.append(blocker_item)
+        return blockers
+
+    @app.tool()
+    def summarize_work_item_status(project: str, work_item_id: int):
+        """
+        Returns a detailed summary of a work item:
+        - Title, type, state
+        - Children (Features/Stories)
+        - Blockers
+        """
+        main_item = get_work_item(project, work_item_id)
+
+        # Get child items
+        children = get_child_work_items(project, work_item_id)
+
+        # Add blocker info for each child
+        for child in children:
+            child["blocked_by"] = get_blockers(project, child["id"])
+
+        return {
+            "work_item": main_item,
+            "children": children
+        }
 
   
