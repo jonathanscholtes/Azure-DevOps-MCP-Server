@@ -1,4 +1,4 @@
-# Azure DevOps MCP Server (HTTP-Streamable)
+# Azure DevOps MCP Server (Remote)
 
 > ⚠️ **Active Development Notice**  
 > This project is currently under active development and may include breaking changes.  
